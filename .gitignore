@@ -1,0 +1,38 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# NuGet Packages
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# Database files
+*.mdf
+*.ldf
+
+# User-specific files
+*.userprefs
+appsettings.Development.json
+appsettings.Production.json
+
+# Node modules (if you have React frontend)
+node_modules/
+.idea/
+
+# mac item
+.DS_Store
+
+# IDE settings?
+.idea/
+publish/

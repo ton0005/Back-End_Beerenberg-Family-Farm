@@ -1,0 +1,9 @@
+<!-- Repository-level build properties -->
+<Project>
+  <PropertyGroup>
+    <!-- Disable package vulnerability audit (avoids NU1900 warnings when nuget.org is unreachable) -->
+    <EnablePackageVulnerabilityAudit>false</EnablePackageVulnerabilityAudit>
+    <!-- Also suppress the NU1900 warning code if it still appears during restore/build -->
+    <NoWarn>$(NoWarn);NU1900</NoWarn>
+  </PropertyGroup>
+</Project>

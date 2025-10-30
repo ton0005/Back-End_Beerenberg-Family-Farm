@@ -1,0 +1,101 @@
+# ASP.NET Core CI/CD pipeline
+trigger:
+  branches:
+    include:
+      - Development
+      - Test
+
+pool:
+  name: "Windows-Deployer"
+
+variables:
+  buildConfiguration: 'Release'
+  
+steps:
+  #Dynamically set deploy path based on branch
+  - powershell: |
+      if ("$(Build.SourceBranchName)" -eq "Test") {
+      Write-Host "##vso[task.setvariable variable=deployPath]C:\inetpub\wwwroot\test\dotnet-app"
+      } else {
+      Write-Host "##vso[task.setvariable variable=deployPath]C:\inetpub\wwwroot\dev\dotnet-app"
+      }
+    displayName: 'Set Deployment Path'
+      
+  - powershell: |
+      Write-Host "Deployment Path is: $(deployPath)"
+    displayName: 'Verify Deployment Path'
+
+  # Install .NET SDK
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'
+    displayName: 'Install .NET SDK'
+      
+  # Restore dependencies
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
+    displayName: 'Restore NuGet Packages'
+  
+  # Build project
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
+      arguments: '--configuration $(buildConfiguration)'
+    displayName: 'Build Project'
+      
+  # Publish project
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'publish'
+      publishWebProjects: true
+      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+      zipAfterPublish: false
+    displayName: 'Publish Project'
+
+  # Stop IIS before deploying new files
+  - powershell: |
+      Write-Host "Stopping IIS..."
+      Stop-Service -Name W3SVC -Force
+    displayName: 'Stop IIS Service'
+
+  # Apply EF Core migrations (only update DB)
+  - powershell: |
+      Write-Host "Updating database with existing EF Core migrations..."
+
+      # Set repo root as working directory
+      Set-Location "$(System.DefaultWorkingDirectory)"
+
+      # Verify EF Core tools
+      dotnet ef --version
+
+      # Run database update using project references
+      dotnet ef database update `
+        -p "src/FarmManagement.Infrastructure/FarmManagement.Infrastructure.csproj" `
+        -s "src/FarmManagement.Api/FarmManagement.Api.csproj" `
+        --verbose
+
+      if ($LASTEXITCODE -ne 0) {
+          Write-Error "Database update failed!"
+          exit 1
+      }
+      Write-Host "Database update completed successfully."
+    displayName: 'Update Database with EF Core Migrations'
+
+  # Deploy to published files
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: '$(Build.ArtifactStagingDirectory)\FarmManagement.Api'
+      contents: '**'
+      targetFolder: '$(deployPath)'
+      overWrite: true
+    displayName: 'Deploy .NET App'
+    
+  # Start IIS after deployment
+  - powershell: |
+      Write-Host "Starting IIS..."
+      Start-Service -Name W3SVC
+    displayName: 'Start IIS Service'
